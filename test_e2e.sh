@@ -95,6 +95,10 @@ function remove_sync_container() {
 REPO="$DIR/repo"
 mkdir "$REPO"
 
+OTHER_REPO_NAME="otherrepo"
+OTHER_REPO="$DIR/$OTHER_REPO_NAME"
+mkdir "$OTHER_REPO"
+
 ROOT="$DIR/root"
 function clean_root() {
     rm -rf "$ROOT"
@@ -107,6 +111,13 @@ git -C "$REPO" init
 touch "$REPO"/file
 git -C "$REPO" add file
 git -C "$REPO" commit -aqm "init file"
+
+# Init the other repo.
+OTHER_REPO_FILE_NAME="otherfile"
+git -C "$OTHER_REPO" init
+touch "$OTHER_REPO/$OTHER_REPO_FILE_NAME"
+git -C "$OTHER_REPO" add "$OTHER_REPO_FILE_NAME"
+git -C "$OTHER_REPO" commit -aqm "init otherfile"
 
 # Test HEAD one-time
 testcase "head-once"
@@ -407,6 +418,21 @@ assert_file_exists "$ROOT"/link/file
 assert_file_eq "$ROOT"/link/file "$TESTCASE"
 # Wrap up
 pass
+
+# Test submodule
+testcase submodule
+git -C "$REPO" submodule add "$OTHER_REPO"
+GIT_SYNC \
+    --logtostderr \
+    --v=5 \
+    --wait=0.1 \
+    --repo="$REPO" \
+    --root="$ROOT" \
+    --dest="link" \
+    --submodule > "$DIR"/log."$TESTCASE" 2>&1 &
+sleep 3
+assert_link_exists "$ROOT"/link
+assert_file_exists "$ROOT/link/$OTHER_REPO_NAME/$OTHER_REPO_FILE_NAME"
 
 echo "cleaning up $DIR"
 rm -rf "$DIR"
